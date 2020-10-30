@@ -39,7 +39,15 @@ def value_iteration(mdp, gamma, theta = 1e-3):
         - mdp.transition_probability(s, a, s_next) returns the probability p(s_next | s, a)
         - mdp.reward(state) returns the reward of the state R(s)
     """
-    raise Exception("Not implemented")
+    while True:
+        delta = 0
+        for i in range(len(mdp.states())):
+            v = V[i]
+            s = mdp.states()[i]
+            V[i] = max([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
+            delta = max(delta, abs(v-v[i]))
+        if delta < theta:
+            break
             
     return V
 
@@ -55,7 +63,11 @@ def policy(mdp, V):
         - mdp Is the markov decision problem
         - V   Is the optimal falue function, found with value iteration
     """
-    raise Exception("Not implemented")
+    for i in range(len(mdp.states())):
+        s = mdp.states()[i]
+        best_action_idx = np.argmax([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
+        PI[i] = mdp.actions(s)[best_action_idx]
+
     
     return PI
 
