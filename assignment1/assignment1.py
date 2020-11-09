@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from gridWorld import gridWorld
+from copy import deepcopy
 import numpy as np
 
 def show_value_function(mdp, V):
@@ -39,15 +40,17 @@ def value_iteration(mdp, gamma, theta = 1e-3):
         - mdp.transition_probability(s, a, s_next) returns the probability p(s_next | s, a)
         - mdp.reward(state) returns the reward of the state R(s)
     """
-    while True:
+    delta = theta + 1
+    while delta >= theta:
         delta = 0
         for i in range(len(mdp.states())):
             v = V[i]
             s = mdp.states()[i]
-            V[i] = max([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
-            delta = max(delta, abs(v-v[i]))
-        if delta < theta:
-            break
+            if len(mdp.actions(s)) == 0:
+                V[i] = mdp.reward(s) 
+            else:
+                V[i] = max([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
+            delta = max(delta, abs(v-V[i]))
             
     return V
 
@@ -65,34 +68,29 @@ def policy(mdp, V):
     """
     for i in range(len(mdp.states())):
         s = mdp.states()[i]
-        best_action_idx = np.argmax([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
-        PI[i] = mdp.actions(s)[best_action_idx]
-
-    
+        if not len(mdp.actions(s)):
+            PI[i] = 0
+        else:
+            best_action_idx = np.argmax([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
+            PI[i] = mdp.actions(s)[best_action_idx]
     return PI
 
 ####################  Problem 2: Policy Iteration #################### 
 def policy_evaluation(mdp, gamma, PI, V, theta = 1e-3):   
-    """
-    YOUR CODE HERE:
-    Problem 2a) Implement Policy Evaluation
-    
-    Input arguments:  
-        - mdp   Is the markov decision problem
-        - gamma Is discount factor
-        - PI    Is current policy
-        - V     Is preveous value function guess
-        - theta Is small threshold for determining accuracy of estimation
-        
-    Some useful tips:
-        - If you decide to do exact policy evaluation, np.linalg.solve(A, b) can be used
-          optionally scipy has a sparse linear solver that can be used
-        - If you decide to do exact policy evaluation, note that the b vector simplifies
-          since the reward R(s', s, a) is only dependant on the current state s, giving the 
-          simplified reward R(s) 
-    """
-    raise Exception("Not implemented")
-        
+
+    V = np.zeros((len(mdp.states())))
+    delta = theta + 1
+    while delta >= theta:
+        delta = 0
+        for i in range(len(mdp.states())):
+            s = mdp.states()[i]
+            v = V[i]
+            if len(mdp.actions(s)) == 0:
+                V[i] = mdp.reward(s)
+            else:
+                V[i] = sum(mdp.transition_probability(s, PI[s], s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states())
+            delta = max(delta, abs(v - V[i]))
+
     return V
 
 def policy_iteration(mdp, gamma):
@@ -109,12 +107,23 @@ def policy_iteration(mdp, gamma):
     Input arguments:  
         - mdp   Is the markov decision problem
         - gamma Is discount factor
-
     Some useful tips:
         - Use the the policy_evaluation function from the preveous subproblem
     """
-    raise Exception("Not implemented")
-            
+    while True:
+        PI_old = deepcopy(PI)
+        V = policy_evaluation(mdp, gamma, PI, V)
+        
+        for i in range(len(mdp.states())):
+            s = mdp.states()[i]
+            if len(mdp.actions(s)) == 0:
+                PI[i] = 0
+            else:
+                best_policy_idx = np.argmax([sum(mdp.transition_probability(s, a, s_next) * (mdp.reward(s) + gamma*V[s_next]) for s_next in mdp.states()) for a in mdp.actions(s)])
+                PI[i] = mdp.actions(s)[best_policy_idx]
+        if np.array_equal(PI, PI_old):
+            break
+
     return PI, V
 
 if __name__ == "__main__":
@@ -128,8 +137,8 @@ if __name__ == "__main__":
         - gridworlds/tiny.json
         - gridworlds/large.json
     """
-    gamma   = 1.0
-    filname = "gridworlds/tiny.json"
+    gamma   = 0.9
+    filname = "gridworlds/large.json"
 
 
     # Import the environment from file
@@ -145,7 +154,6 @@ if __name__ == "__main__":
     
     PI = policy(env, V)
     show_policy(env, PI)
-    
     # Run Policy Iteration and render value function and policy
     PI, V = policy_iteration(mdp = env, gamma = gamma)
     show_value_function(env, V)
